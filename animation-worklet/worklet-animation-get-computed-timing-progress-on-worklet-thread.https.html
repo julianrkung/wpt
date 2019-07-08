@@ -1,0 +1,73 @@
+<html>
+<title>Animation Worklet should update calculated timing whenever localTime changes</title>
+<link rel="help" href="https://drafts.css-houdini.org/css-animationworklet/">
+
+<script src="/resources/testharness.js"></script>
+<script src="/resources/testharnessreport.js"></script>
+<script src="/web-animations/testcommon.js"></script>
+<script src="common.js"></script>
+
+<div id="box"></div>
+
+<script id="get_computed_timing_animator" type="text/worklet">
+  registerAnimator('get_computed_timing', class {
+    constructor(options, state) {
+      this.step = state ? state.step : 0;
+    }
+    state() {
+      return {
+        step: 0
+      }
+    }
+    animate(currentTime, effect){
+      if (this.step === 0){
+        this.step = 1;
+
+        // set effect.localTime, this should be the first time calculated timing values are computed
+        effect.localTime = 420; // 20% of the way through the last iteration
+
+        // using the calculated timing of effect, set effect.localTime.
+        effect.localTime = effect.getComputedTiming().delay + (effect.getComputedTiming().progress * 100);
+      }
+      else if (this.step === 1){
+        this.step = 2;
+
+        // set effect.localTime, which should cause the effect to recompute its calculated timing
+        effect.localTime = 350; // 50% of the way through second iteration
+
+        // using the calculated timing of effect, set effect.localTime.
+        effect.localTime = effect.getComputedTiming().delay + (effect.getComputedTiming().progress * 100);
+      }
+    }
+  });
+</script>
+
+<script>
+  promise_test(async t => {
+    await runInAnimationWorklet(document.getElementById('get_computed_timing_animator').textContent);
+
+    const box = document.getElementById("box");
+    const effect = new KeyframeEffect(
+      box,
+      [
+        { opacity: 0 },
+        { opacity: 1 }
+      ], {
+        delay: 200,
+        duration: 100,
+        iterations: 3
+      }
+    );
+
+    const animation = new WorkletAnimation('get_computed_timing', effect);
+    animation.play();
+
+    // Check to make sure initial values can be set for computed timing
+    await waitForAnimationFrameWithCondition(() => {return effect.getComputedTiming().localTime == 219.999});
+
+    // Check to make sure values can be updated when localtime changes (see animator for how localTime is changing)
+    await waitForAnimationFrameWithCondition(() => {return effect.getComputedTiming().localTime == 249.999});
+
+    // Passes if it doesn't timeout
+  }, "WorkletAnimation effect should recompute its calculated timing if its local time changes");
+</script>

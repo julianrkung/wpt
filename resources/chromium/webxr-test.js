@@ -36,7 +36,7 @@ class ChromeXRTest {
 
 // Mocking class definitions
 
-// Mock service implements both the VRService and XRDevice mojo interfaces.
+// Mock service implements the VRService mojo interface.
 class MockVRService {
   constructor() {
     this.bindingSet_ = new mojo.BindingSet(device.mojom.VRService);
@@ -69,24 +69,10 @@ class MockVRService {
     this.runtimes_ = [];
   }
 
-  // VRService implementation.
-  requestDevice() {
-    if (this.runtimes_.length > 0) {
-      let devicePtr = new device.mojom.XRDevicePtr();
-      new mojo.Binding(
-          device.mojom.XRDevice, this, mojo.makeRequest(devicePtr));
-
-      return Promise.resolve({device: devicePtr});
-    } else {
-      return Promise.resolve({device: null});
-    }
-  }
-
   setClient(client) {
     this.client_ = client;
   }
 
-  // XRDevice implementation.
   requestSession(sessionOptions, was_activation) {
     let requests = [];
     // Request a session from all the runtimes.
